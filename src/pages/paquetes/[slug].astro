@@ -1,0 +1,288 @@
+---
+import { createClient } from "@sanity/client";
+
+// Configuración del cliente
+const client = createClient({
+  projectId: "6df459fs",
+  dataset: "production",
+  useCdn: true,
+  apiVersion: "2024-02-21",
+});
+
+export async function getStaticPaths() {
+  const client = createClient({
+    projectId: "6df459fs",
+    dataset: "production",
+    useCdn: true,
+    apiVersion: "2024-02-21",
+  });
+  const servicios = await client.fetch(`*[_type == "servicio" && defined(slug.current)]`);
+  return servicios.map((s) => ({
+    params: { slug: s.slug.current },
+  }));
+}
+
+const { slug } = Astro.params;
+
+// Traer datos incluyendo la nueva galería y paquetes
+const servicio = await client.fetch(`*[_type == "servicio" && slug.current == $slug][0]{
+  nombre,
+  "urlFondo": imagenFondo.asset->url,
+  paquetes[] {
+    nombrePaquete,
+    descripcion,
+    precio
+  },
+  "galeriaExclusiva": imagenesServicio[].asset->url
+}`, { slug });
+
+if (!servicio) return Astro.redirect('/404');
+---
+
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{servicio.nombre} | HR Estudio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style is:global>
+        :root { 
+            --crema: #FDFCF9; 
+            --texto: #2D2D2D; 
+            --oro: #C5A059; 
+            --borde: #EEECE7; 
+        }
+
+        /* 1. Barra de Progreso Superior */
+        #progress-bar {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: var(--oro); box-shadow: 0 0 10px var(--oro);
+            z-index: 100000; width: 0%; transition: width 0.2s ease-out;
+        }
+
+        /* Fondo Animado */
+        body { 
+            background: linear-gradient(-45deg, #FDFCF9, #EEECE7, #FDFCF9, #E5E1DA);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--texto); 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Cursor Magnético */
+        #custom-cursor {
+            width: 20px; height: 20px;
+            background: var(--oro);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 99999;
+            mix-blend-mode: difference;
+            transition: transform 0.1s ease, width 0.3s ease, height 0.3s ease;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        
+        /* Header Futurista */
+        .header-servicio { 
+            height: 60vh;
+            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('${servicio.urlFondo}'); 
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+        }
+        .header-servicio h1 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: clamp(2.5rem, 8vw, 5rem); 
+            letter-spacing: 15px; 
+            margin: 20px 0;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .back-link { color: white; text-decoration: none; font-size: 0.8rem; letter-spacing: 3px; border: 1px solid rgba(255,255,255,0.4); padding: 10px 20px; backdrop-filter: blur(5px); transition: 0.3s; }
+        .back-link:hover { background: white; color: black; }
+
+        /* Tarjetas Glassmorphism con Tilt */
+        .paquetes-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 30px; 
+            margin-top: -100px; 
+            position: relative;
+            z-index: 10;
+            perspective: 1000px;
+        }
+        .card-paquete { 
+            background: rgba(255, 255, 255, 0.6); 
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            padding: 50px 30px; 
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+            text-align: center;
+            border-radius: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+            transition: transform 0.1s ease-out, background 0.5s;
+            transform-style: preserve-3d;
+        }
+        .card-paquete:hover { background: rgba(255, 255, 255, 0.8); }
+        
+        .precio { display: block; font-size: 2.2rem; color: var(--oro); font-family: 'Playfair Display', serif; margin: 20px 0; transform: translateZ(30px); }
+        .card-paquete h3 { transform: translateZ(20px); }
+        
+        .btn-reservar { 
+            background: var(--texto); 
+            color: white; 
+            padding: 16px 40px; 
+            text-decoration: none; 
+            display: inline-block; 
+            letter-spacing: 2px; 
+            font-size: 0.8rem;
+            border-radius: 50px;
+            transition: 0.3s;
+            transform: translateZ(25px);
+        }
+        .btn-reservar:hover { background: var(--oro); transform: scale(1.05) translateZ(35px); }
+
+        /* Galería Reveal con Filtro Artístico */
+        .seccion-galeria { margin-top: 100px; }
+        .filter-toggle {
+            display: block; margin: 0 auto 40px; background: none; border: 1px solid var(--oro);
+            color: var(--oro); padding: 10px 20px; cursor: pointer; letter-spacing: 2px;
+            font-size: 0.7rem; transition: 0.3s; border-radius: 4px;
+        }
+        .filter-toggle:hover { background: var(--oro); color: white; }
+
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .gallery-grid.art-mode img { filter: grayscale(1) contrast(1.2); }
+        
+        .gallery-item { border-radius: 15px; overflow: hidden; aspect-ratio: 4/5; }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: 1.5s ease, filter 0.5s ease; }
+        .gallery-item:hover img { transform: scale(1.1); }
+
+        .reveal { opacity: 0; transform: translateY(30px); transition: 1s ease-out; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div id="progress-bar"></div>
+    <div id="custom-cursor"></div>
+
+    <header class="header-servicio">
+        <a href="/" class="back-link">← VOLVER</a>
+        <h1>{servicio.nombre}</h1>
+    </header>
+
+    <main class="container">
+        <div class="paquetes-grid">
+            {servicio.paquetes?.map((p) => (
+                <div class="card-paquete reveal tilt-card">
+                    <h3>{p.nombrePaquete}</h3>
+                    <p>{p.descripcion}</p>
+                    <span class="precio">${p.precio}</span>
+                    <a href={`https://wa.me/529333251889?text=Hola, quiero información del paquete ${p.nombrePaquete} para ${servicio.nombre}`} class="btn-reservar">
+                        RESERVAR AHORA
+                    </a>
+                </div>
+            ))}
+        </div>
+
+        {servicio.galeriaExclusiva && (
+            <section class="seccion-galeria">
+                <h2 style="text-align:center; letter-spacing:8px; margin-bottom:20px;">PORTAFOLIO EXCLUSIVO</h2>
+                <button class="filter-toggle" id="btn-filtro">VISTA ARTÍSTICA (B&N)</button>
+                <div class="gallery-grid" id="service-gallery">
+                    {servicio.galeriaExclusiva.map((url) => (
+                        <div class="gallery-item reveal">
+                            <img src={url} alt="Muestra de trabajo" loading="lazy" />
+                        </div>
+                    ))}
+                </div>
+            </section>
+        )}
+    </main>
+
+    <script is:inline>
+        // 1. Barra de Progreso
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('progress-bar').style.width = scrolled + '%';
+        });
+
+        // 2. Efecto Tilt 3D
+        const cards = document.querySelectorAll('.tilt-card');
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 15;
+                const rotateY = (centerX - x) / 15;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-20px)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)`;
+            });
+        });
+
+        // 3. Filtro Artístico
+        document.getElementById('btn-filtro')?.addEventListener('click', function() {
+            document.getElementById('service-gallery').classList.toggle('art-mode');
+            this.textContent = this.textContent.includes('ARTÍSTICA') ? 'VISTA ORIGINAL' : 'VISTA ARTÍSTICA (B&N)';
+        });
+
+        // Cursor
+        const cursor = document.getElementById('custom-cursor');
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            cursor.style.transform = `translate(-50%, -50%)`;
+        });
+
+        // Hover effect para cursor
+        const interactive = document.querySelectorAll('.btn-reservar, .back-link, .gallery-item, .filter-toggle');
+        interactive.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                cursor.style.width = '60px';
+                cursor.style.height = '60px';
+                cursor.style.background = 'rgba(197, 160, 89, 0.3)';
+            });
+            el.addEventListener('mouseleave', () => {
+                cursor.style.width = '20px';
+                cursor.style.height = '20px';
+                cursor.style.background = 'var(--oro)';
+            });
+        });
+
+        // Reveal
+        function reveal() {
+            const reveals = document.querySelectorAll(".reveal");
+            reveals.forEach(el => {
+                const windowHeight = window.innerHeight;
+                const elementTop = el.getBoundingClientRect().top;
+                if (elementTop < windowHeight - 100) el.classList.add("active");
+            });
+        }
+        window.addEventListener("scroll", reveal);
+        reveal();
+    </script>
+</body>
+</html>
